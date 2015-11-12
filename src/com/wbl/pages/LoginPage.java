@@ -18,9 +18,12 @@ public class LoginPage extends PortalPage {
 
     public LoginPage(PageDriver driver) {
         super(driver);
-        driver.findElement("id=home.loginLink").click();
     }
 
+    public void getLoginPage()
+    {
+        driver.findElement("id=home.loginLink").click();
+    }
 
     public String getCookie(String cookieName)
     {
@@ -38,6 +41,7 @@ public class LoginPage extends PortalPage {
             userId.sendKeys(userName);
             pwd.sendKeys(password);
             driver.findElement("login.loginBtn").click();
+            driver.waitForLoad();
             driver.elementClickWait(WBy.get("id=home.logoutLink"));
             isVisible = driver.findElement("id=home.logoutLink").isDisplayed();
         }

@@ -1,14 +1,19 @@
 package com.wbl.utils.web;
 
+import com.gargoylesoftware.htmlunit.BrowserVersion;
 import com.wbl.utils.Configuration;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.firefox.FirefoxBinary;
 import org.openqa.selenium.firefox.FirefoxDriver;
 import org.openqa.selenium.htmlunit.HtmlUnitDriver;
 import org.openqa.selenium.ie.InternetExplorerDriver;
+import org.openqa.selenium.interactions.Actions;
+import org.openqa.selenium.os.WindowsUtils;
 import org.openqa.selenium.remote.DesiredCapabilities;
 import org.openqa.selenium.support.ui.ExpectedCondition;
 import org.openqa.selenium.support.ui.ExpectedConditions;
@@ -16,6 +21,8 @@ import org.openqa.selenium.support.ui.WebDriverWait;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -29,6 +36,10 @@ public class PageDriver implements ElementsContainer {
     private WebDriver _webDriver;
     private String _mainWindowHandler;
     private Logger _logger;
+    private WScreenshot wScreenshot;
+    private WSelect wSelect;
+    private WwindowHandles wWindowHandles = new WwindowHandles();
+    private FileUpload fileUpload =  new FileUpload();
 
     public PageDriver(Configuration configuration) {
         _configuration = configuration;
@@ -60,6 +71,7 @@ public class PageDriver implements ElementsContainer {
         try {
             return new HtmlElement(this, _webDriver.findElement(WBy.get(locator)));
         } catch (Exception ex) {
+            ex.printStackTrace();
             _logger.error(ex);
             return null;
         }
@@ -79,6 +91,7 @@ public class PageDriver implements ElementsContainer {
             }
             return elements;
         } catch (Exception ex) {
+            ex.printStackTrace();
             _logger.error(ex);
             return null;
         }
@@ -92,6 +105,14 @@ public class PageDriver implements ElementsContainer {
         _webDriver = null;
 
         // TODO: Kill rest driver process: chromedriver.exe, IEDriverServer.exe (test regarding should it be done on start)
+    }
+
+    public void close()
+    {
+        if(_webDriver != null)
+        {
+            _webDriver.close();
+        }
     }
 
     public void open(String url) {
@@ -127,18 +148,31 @@ public class PageDriver implements ElementsContainer {
         return links;
     }
 
-    public void saveScreenShot(String path) {
+    public WebDriver getWebDriver()
+    {
+    	return _webDriver;
+    }
+    
+    public Object executeJavaScript(String javaScript, String locator) {
+        JavascriptExecutor javaScriptExecutor = (JavascriptExecutor) _webDriver;
         try {
-            FileUtils.copyFile(((TakesScreenshot) _webDriver).getScreenshotAs(OutputType.FILE), new File(path));
-        } catch (IOException e) {
+            return javaScriptExecutor.executeScript(javaScript, _webDriver.findElement(WBy.get(locator)));
+        } catch (Exception e) {
+            _logger.error(e);
             e.printStackTrace();
         }
+        return null;
     }
 
-    public Object ExecuteJavaScript(String javaScript, Object[] args) {
+    public Object executeAsyncJavaScript(String javaScript, String locator) {
         JavascriptExecutor javaScriptExecutor = (JavascriptExecutor) _webDriver;
-
-        return javaScriptExecutor.executeScript(javaScript, args);
+        try {
+            return javaScriptExecutor.executeAsyncScript(javaScript, _webDriver.findElement(WBy.get(locator)));
+        } catch (Exception e) {
+            _logger.error(e);
+            e.printStackTrace();
+        }
+        return null;
     }
 
     public String getDescription() {
@@ -148,33 +182,82 @@ public class PageDriver implements ElementsContainer {
     public String getCookie(String cookieName)
     {
         String value = null;
-        return _webDriver.manage().getCookieNamed(cookieName).getValue();
+        if(_browser == Browsers.InternetExplorer) {
+            value = (String) ((JavascriptExecutor) _webDriver).executeScript("return document.cookie;");
+            if(value.contains("="))
+            {
+                value = value.split("=")[1];
+            }
+        }
+        else
+        {
+            value = _webDriver.manage().getCookieNamed(cookieName).getValue();
+        }
+        return value;
     }
 
-    public void implicitWait(long timeout)
+    public void implicitWait(long timeout)throws Exception
     {
-        _webDriver.manage().timeouts().implicitlyWait(timeout,TimeUnit.SECONDS);
+       // if (_browser != Browsers.HtmlUnit) {
+        _webDriver.manage().timeouts().implicitlyWait(timeout, TimeUnit.SECONDS);
+          Thread.sleep(timeout);
+            return;
+      //  }
+
     }
 
 
     public void elementClickWait(By locator )
     {
-        long timeout = Long.valueOf(_configuration.WaitTimeout).longValue();
-        WebDriverWait wait = new WebDriverWait(_webDriver, timeout);
-        wait.until(ExpectedConditions.elementToBeClickable(locator));
+      // if (_browser != Browsers.HtmlUnit) {
+            long timeout = Long.valueOf(_configuration.WaitTimeout).longValue();
+            WebDriverWait wait = new WebDriverWait(_webDriver, timeout);
+            wait.until(ExpectedConditions.elementToBeClickable(locator));
+      //s  }
     }
 
+    public void visibilityWait(By locator)
+    {
+        //if (_browser != Browsers.HtmlUnit) {
+        try {
+            long timeout = Long.valueOf(_configuration.WaitTimeout).longValue();
+            WebDriverWait wait = new WebDriverWait(_webDriver, timeout);
+            wait.until(ExpectedConditions.visibilityOfElementLocated(locator));
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        // }
+    }
     public void waitForLoad()
     {
-        ExpectedCondition<Boolean> pageLoadCondition = new
-                ExpectedCondition<Boolean>() {
-                    public Boolean apply(WebDriver _webDriver) {
-                        return ((JavascriptExecutor)_webDriver).executeScript("return document.readyState").equals("complete");
-                    }
-                };
+        if (_browser != Browsers.HtmlUnit) {
+            ExpectedCondition<Boolean> pageLoadCondition = new
+                    ExpectedCondition<Boolean>() {
+                        public Boolean apply(WebDriver _webDriver) {
+                            return ((JavascriptExecutor) _webDriver).executeScript("return document.readyState").equals("complete");
+                        }
+                    };
+            long timeout = Long.valueOf(_configuration.WaitTimeout).longValue();
+            WebDriverWait wait = new WebDriverWait(_webDriver, timeout);
+            wait.until(pageLoadCondition);
+       }
+    }
+
+    public void presenceWait(By locator)
+    {
+        try {
         long timeout = Long.valueOf(_configuration.WaitTimeout).longValue();
         WebDriverWait wait = new WebDriverWait(_webDriver, timeout);
-        wait.until(pageLoadCondition);
+        wait.until(ExpectedConditions.presenceOfAllElementsLocatedBy(locator));
+        Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+    public Actions initializeAction()
+    {
+        return new Actions(_webDriver);
     }
 
     private void start() {
@@ -210,6 +293,7 @@ public class PageDriver implements ElementsContainer {
 
     private InternetExplorerDriver startInternetExplorer() {
         System.setProperty("webdriver.ie.driver", String.format("%s/IEDriverServer.exe", System.getProperty("user.dir")));
+        //WindowsUtils.writeStringRegistryValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Microsoft\\Internet Explorer\\Main\\FeatureControl\\FEATURE_BFCACHE", "2.48.2");
         DesiredCapabilities caps = DesiredCapabilities.internetExplorer();
         caps.setCapability(InternetExplorerDriver.INTRODUCE_FLAKINESS_BY_IGNORING_SECURITY_DOMAINS, true);
         caps.setCapability(InternetExplorerDriver.FORCE_CREATE_PROCESS, false);
@@ -244,7 +328,9 @@ public class PageDriver implements ElementsContainer {
                 "services.sync.prefs.sync.browser.download.manager.showWhenStarting",
                 false);
         firefoxProfile.setPreference("pdfjs.disabled", true);*/
-        return new FirefoxDriver();
+        FirefoxBinary fb = new FirefoxBinary();
+        fb.setEnvironmentProperty("DISPLAY", ":2");
+        return new FirefoxDriver(fb,null);
     }
 
     private ChromeDriver startChrome() {
@@ -273,9 +359,54 @@ public class PageDriver implements ElementsContainer {
     }
 
     private HtmlUnitDriver startHtmlUnit() {
-        return new HtmlUnitDriver();
+        return new HtmlUnitDriver(true);
     }
 
+    public void takeScreenShot()throws IOException
+    {
+        if(_browser != Browsers.HtmlUnit) {
+            wScreenshot = new WScreenshot((TakesScreenshot) _webDriver);
+            wScreenshot.takeScreenShot(_configuration.TakeScreenShot);
+        }
+    }
 
+    public void getwWindowHandles(boolean isSingleWindow) {
 
+        if(isSingleWindow)
+        {
+            wWindowHandles.switchToWindow(_webDriver);
+        }
+        else
+        {
+            wWindowHandles.windowHandles(_webDriver);
+        }
+    }
+
+    public void uploadFile() {
+        if(fileUpload != null)
+            try {
+                fileUpload.uploadFile(fileUpload.getFilePath());
+            } catch (IOException e) {
+                _logger.error(e);
+                e.printStackTrace();
+            }
+    }
+
+    public WSelect getwSelect(String locator)
+    {
+        try {
+            wSelect = new WSelect(_webDriver.findElement(WBy.get(locator)));
+            return wSelect;
+        } catch (Exception e) {
+            _logger.error(e);
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    public String getPageSource()
+    {
+        return _webDriver.getPageSource();
+    }
 }

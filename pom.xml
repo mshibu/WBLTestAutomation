@@ -18,10 +18,9 @@
             <configuration>
                 <source>1.7</source>
                 <target>1.7</target>
-                <showDeprecation>true</showDeprecation>
+                <!--<showDeprecation>true</showDeprecation>
                 <showWarnings>true</showWarnings>
-                <executable>${JAVA_1_7_HOME}/bin/javac</executable>
-                <fork>true</fork>
+                <fork>true</fork>-->
             </configuration>
            </plugin>
            <plugin>
@@ -33,6 +32,7 @@
                    <suiteXmlFiles>
                        <suiteXmlFile>./build/web/testng.xml</suiteXmlFile>
                        <suiteXmlFile>./build/rest/rest-testng.xml</suiteXmlFile>
+                      <!-- <suiteXmlFile>./build/mobile/Testng.xml</suiteXmlFile>-->
                    </suiteXmlFiles>
                </configuration>
            </plugin>
@@ -62,13 +62,39 @@
         <dependency>
             <groupId>org.seleniumhq.selenium</groupId>
             <artifactId>selenium-server</artifactId>
-            <version>2.42.2</version>
+            <version>2.48.2</version>
             <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-java</artifactId>
+            <version>2.48.2</version>
         </dependency>
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml</artifactId>
             <version>3.12</version>
+        </dependency>
+        <dependency>
+            <groupId>io.appium</groupId>
+            <artifactId>java-client</artifactId>
+            <version>3.2.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.seleniumhq.selenium</groupId>
+                    <artifactId>selenium-java</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.seleniumhq.selenium</groupId>
+            <artifactId>selenium-htmlunit-driver</artifactId>
+            <version>2.48.2</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.5.1</version>
         </dependency>
     </dependencies>
 
